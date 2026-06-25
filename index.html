@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RFID Sync - Professional Attendance Tracker</title>
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Lucide Icons CDN -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="./style.css">
+</head>
+<body class="dark-theme">
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="logo-area">
+                <div class="logo-icon">
+                    <i data-lucide="nfc" class="pulse-icon"></i>
+                </div>
+                <div class="logo-text">
+                    <h2>RFID<span>Sync</span></h2>
+                    <span class="sub-logo">Attendance System</span>
+                </div>
+            </div>
+
+            <nav class="nav-menu">
+                <button class="nav-item active" data-tab="dashboard">
+                    <i data-lucide="layout-dashboard"></i>
+                    <span>Dashboard</span>
+                </button>
+                <button class="nav-item" data-tab="directory">
+                    <i data-lucide="users"></i>
+                    <span>Student Directory</span>
+                </button>
+                <button class="nav-item" data-tab="analytics">
+                    <i data-lucide="bar-chart-3"></i>
+                    <span>Analytics</span>
+                </button>
+                <button class="nav-item" data-tab="serial">
+                    <i data-lucide="terminal"></i>
+                    <span>Serial Monitor</span>
+                </button>
+            </nav>
+
+            <div class="sidebar-footer">
+                <button id="theme-toggle" class="footer-btn" title="Toggle Light/Dark Theme">
+                    <i data-lucide="sun" class="theme-icon-light"></i>
+                    <i data-lucide="moon" class="theme-icon-dark"></i>
+                    <span>Theme</span>
+                </button>
+                <button id="system-reset" class="footer-btn danger" title="Clear all local data">
+                    <i data-lucide="refresh-cw"></i>
+                    <span>Reset Data</span>
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Header Bar -->
+            <header class="header-bar">
+                <div class="header-info">
+                    <h1 id="page-title">Dashboard Overview</h1>
+                    <p class="current-date" id="live-clock">Loading clock...</p>
+                </div>
+                
+                <div class="connection-panel">
+                    <div class="status-indicator disconnected" id="conn-status">
+                        <span class="dot"></span>
+                        <span class="status-text">Disconnected</span>
+                    </div>
+                    <button class="btn btn-primary" id="btn-connect">
+                        <i data-lucide="usb"></i>
+                        <span>Connect Arduino</span>
+                    </button>
+                </div>
+            </header>
+
+            <!-- Stats Ribbon (Always Visible at Top) -->
+            <section class="stats-grid">
+                <!-- Card 1 -->
+                <div class="stat-card glass-panel">
+                    <div class="stat-icon bg-emerald-light">
+                        <i data-lucide="door-open" class="color-emerald"></i>
+                    </div>
+                    <div class="stat-details">
+                        <span class="stat-label">Active Inside</span>
+                        <h3 class="stat-val" id="stat-active-count">0</h3>
+                        <span class="stat-trend trend-neutral" id="stat-active-sub">No students inside</span>
+                    </div>
+                </div>
+                <!-- Card 2 -->
+                <div class="stat-card glass-panel">
+                    <div class="stat-icon bg-blue-light">
+                        <i data-lucide="scan" class="color-blue"></i>
+                    </div>
+                    <div class="stat-details">
+                        <span class="stat-label">Total Logs Today</span>
+                        <h3 class="stat-val" id="stat-log-count">0</h3>
+                        <span class="stat-trend trend-up" id="stat-log-sub">Scans recorded</span>
+                    </div>
+                </div>
+                <!-- Card 3 -->
+                <div class="stat-card glass-panel">
+                    <div class="stat-icon bg-purple-light">
+                        <i data-lucide="clock-check" class="color-purple"></i>
+                    </div>
+                    <div class="stat-details">
+                        <span class="stat-label">Punctuality Rate</span>
+                        <h3 class="stat-val" id="stat-punct-rate">--%</h3>
+                        <span class="stat-trend" id="stat-punct-sub">Shift: 09:00 AM</span>
+                    </div>
+                </div>
+
+            </section>
+
+            <!-- Tab Contents -->
+            <div class="tab-content-container">
+                
+                <!-- 1. DASHBOARD TAB -->
+                <div class="tab-pane active" id="tab-dashboard">
+                    <div class="dashboard-layout">
+                        <!-- Left Panel: Live Stream -->
+                        <div class="dashboard-left">
+                            <div class="glass-panel feed-panel">
+                                <div class="panel-header">
+                                    <div class="title-with-badge">
+                                        <h3>Live Scan Activity</h3>
+                                        <span class="badge badge-indigo animate-pulse">Live</span>
+                                    </div>
+                                    <button class="btn-text" id="btn-clear-feed">Clear</button>
+                                </div>
+                                <div class="feed-container" id="feed-list">
+                                    <!-- Dynamic rows will go here -->
+                                    <div class="empty-state">
+                                        <i data-lucide="inbox"></i>
+                                        <p>No RFID scans recorded yet. Connect your Arduino or use the simulator panel to scan a card.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Right Panel: Currently Inside & Simulator -->
+                        <div class="dashboard-right">
+                            <!-- Currently Inside List -->
+                            <div class="glass-panel inside-panel">
+                                <div class="panel-header">
+                                    <h3>Currently Inside</h3>
+                                    <span class="counter-badge" id="inside-badge-count">0</span>
+                                </div>
+                                <div class="inside-list-container" id="inside-list">
+                                    <!-- Dynamic items -->
+                                    <div class="empty-state">
+                                        <i data-lucide="door-closed"></i>
+                                        <p>Nobody inside the building right now.</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Interactive Simulator -->
+                            <div class="glass-panel simulator-panel border-highlight">
+                                <div class="panel-header">
+                                    <div class="title-with-icon">
+                                        <i data-lucide="cpu" class="color-purple"></i>
+                                        <h3>Hardware Simulator</h3>
+                                    </div>
+                                    <span class="badge badge-purple">Testing Tool</span>
+                                </div>
+                                <p class="panel-desc">Test your dashboard logic instantly without plugging in a physical Arduino. Simulates live RFID serial signals.</p>
+                                
+                                <div class="sim-form">
+                                    <div class="form-group">
+                                        <label for="sim-student-select">Select Card to Scan</label>
+                                        <select id="sim-student-select" class="form-control">
+                                            <!-- Dynamic student options -->
+                                        </select>
+                                    </div>
+                                    
+                                    <div class="sim-custom-uid-group" id="custom-uid-container" style="display: none;">
+                                        <div class="form-group">
+                                            <label for="sim-custom-uid">Custom UID (HEX)</label>
+                                            <input type="text" id="sim-custom-uid" class="form-control" placeholder="e.g. 5f93979" value="d25a6b10">
+                                        </div>
+                                    </div>
+
+                                    <div class="sim-actions-grid">
+                                        <button class="btn btn-secondary" id="btn-toggle-custom-uid">
+                                            <i data-lucide="plus"></i>
+                                            <span>Custom UID</span>
+                                        </button>
+                                        <button class="btn btn-purple" id="btn-sim-scan">
+                                            <i data-lucide="zap"></i>
+                                            <span>Simulate Scan</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. STUDENT DIRECTORY TAB -->
+                <div class="tab-pane" id="tab-directory">
+                    <div class="glass-panel directory-panel">
+                        <div class="panel-header stack-mobile">
+                            <div class="search-box">
+                                <i data-lucide="search"></i>
+                                <input type="text" id="directory-search" placeholder="Search by name, roll number, or UID...">
+                            </div>
+                            <div class="action-buttons">
+                                <button class="btn btn-outline" id="btn-export-csv">
+                                    <i data-lucide="download"></i>
+                                    <span>Export CSV</span>
+                                </button>
+                                <button class="btn btn-outline" id="btn-import-csv-trigger">
+                                    <i data-lucide="upload"></i>
+                                    <span>Import Data</span>
+                                </button>
+                                <input type="file" id="import-csv-file" accept=".json,.csv" style="display: none;">
+                                <button class="btn btn-primary" id="btn-add-student">
+                                    <i data-lucide="user-plus"></i>
+                                    <span>Add Student</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="table-container">
+                            <table class="data-table" id="directory-table">
+                                <thead>
+                                    <tr>
+                                        <th>Roll Number</th>
+                                        <th>Name</th>
+                                        <th>Card UID</th>
+                                        <th>Current Status</th>
+                                        <th>Total Hours</th>
+                                        <th>Scans Today</th>
+                                        <th class="actions-col">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="directory-list">
+                                    <!-- Dynamic rows -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. ANALYTICS TAB -->
+                <div class="tab-pane" id="tab-analytics">
+                    <div class="analytics-layout">
+                        <!-- Chart Card 1: Attendance breakdown -->
+                        <div class="glass-panel chart-card card-half">
+                            <div class="panel-header">
+                                <h3>Hourly Attendance Activity</h3>
+                                <p class="chart-subtitle">Distribution of entries vs exits throughout the day</p>
+                            </div>
+                            <div class="chart-container">
+                                <canvas id="hourlyChart"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Chart Card 2: Punctuality -->
+                        <div class="glass-panel chart-card card-half">
+                            <div class="panel-header">
+                                <h3>Punctuality Breakdown</h3>
+                                <p class="chart-subtitle">On-time entries vs. Late arrivals</p>
+                            </div>
+                            <div class="chart-container container-pie">
+                                <canvas id="punctualityChart"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Chart Card 3: Student Attendance Stats -->
+                        <div class="glass-panel chart-card card-full">
+                            <div class="panel-header">
+                                <h3>Student Inside-Time Tracker</h3>
+                                <p class="chart-subtitle">Cumulative hours spent inside the building by each student</p>
+                            </div>
+                            <div class="chart-container">
+                                <canvas id="hoursChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4. SERIAL MONITOR TAB -->
+                <div class="tab-pane" id="tab-serial">
+                    <div class="serial-monitor-layout">
+                        <div class="glass-panel serial-config border-highlight">
+                            <h3>Serial Port Settings</h3>
+                            <p class="panel-desc">Configure your hardware connection details.</p>
+                            
+                            <div class="config-fields">
+                                <div class="form-group">
+                                    <label>Baud Rate</label>
+                                    <select class="form-control" id="serial-baud">
+                                        <option value="9600" selected>9600 (Recommended)</option>
+                                        <option value="115200">115200</option>
+                                        <option value="4800">4800</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Live Timestamp Mode</label>
+                                    <select class="form-control" id="serial-timestamp-mode">
+                                        <option value="system" selected>Browser System Time (Live)</option>
+                                        <option value="arduino">Arduino Time Stamp (Millis offset)</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Shift Start Time</label>
+                                    <input type="time" class="form-control" id="config-shift-start" value="09:00">
+                                </div>
+                            </div>
+                            
+                            <div class="config-actions">
+                                <button class="btn btn-primary btn-block" id="btn-serial-connect-monitor">
+                                    <i data-lucide="link"></i>
+                                    <span>Open Connection</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="glass-panel serial-console">
+                            <div class="panel-header">
+                                <div class="title-with-badge">
+                                    <h3>Console Log</h3>
+                                    <span class="badge" id="serial-buffer-badge">0 bytes read</span>
+                                </div>
+                                <div class="console-actions">
+                                    <button class="btn btn-outline btn-sm" id="btn-copy-console">
+                                        <i data-lucide="copy"></i>
+                                        <span>Copy Log</span>
+                                    </button>
+                                    <button class="btn btn-outline btn-sm" id="btn-clear-console">
+                                        <i data-lucide="trash-2"></i>
+                                        <span>Clear Console</span>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="console-output" id="serial-log">
+                                <div class="log-line system-line">[SYSTEM] Console initialized. Ready to receive RFID serial stream...</div>
+                                <div class="log-line system-line">[SYSTEM] If you don't have hardware connected, use the Simulator on the Dashboard to inject mock cards.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- MODAL 1: ADD/EDIT STUDENT -->
+    <div class="modal-overlay" id="modal-student">
+        <div class="modal-card glass-panel">
+            <div class="modal-header">
+                <h3 id="modal-student-title">Register New Student</h3>
+                <button class="modal-close" id="btn-close-student-modal">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <form id="form-student" class="modal-form">
+                <input type="hidden" id="student-edit-index" value="-1">
+                
+                <div class="form-group">
+                    <label for="student-name">Student Full Name</label>
+                    <input type="text" id="student-name" class="form-control" placeholder="e.g. Mayank Kumar" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="student-roll">Roll Number / ID</label>
+                    <input type="text" id="student-roll" class="form-control" placeholder="e.g. 1DS25IS091" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="student-uid">Card UID (HEX)</label>
+                    <div class="input-with-button">
+                        <input type="text" id="student-uid" class="form-control" placeholder="e.g. 3fa6d0e5" required>
+                        <button type="button" class="btn btn-secondary btn-icon-only" id="btn-capture-uid" title="Listen for next RFID scan to fill">
+                            <i data-lucide="scan-line"></i>
+                        </button>
+                    </div>
+                    <span class="input-help" id="capture-status">Click RFID scan button or swipe card to auto-capture.</span>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-outline" id="btn-cancel-student">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="btn-save-student">Save Registration</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 2: STUDENT DOSSIER / PROFILE DETAIL -->
+    <div class="modal-overlay" id="modal-dossier">
+        <div class="modal-card glass-panel modal-lg">
+            <div class="modal-header">
+                <div class="dossier-header-title">
+                    <h3 id="dossier-name">Student Profile</h3>
+                    <span class="badge" id="dossier-status-badge">Outside</span>
+                </div>
+                <button class="modal-close" id="btn-close-dossier-modal">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            
+            <div class="dossier-body">
+                <!-- Profile details -->
+                <div class="dossier-sidebar">
+                    <div class="dossier-avatar">
+                        <i data-lucide="user"></i>
+                    </div>
+                    <div class="dossier-info-block">
+                        <h4 id="dossier-info-name">Mayank Kumar</h4>
+                        <p class="dossier-sub" id="dossier-info-roll">1DS25IS091</p>
+                        <p class="dossier-uid">UID: <span id="dossier-info-uid">3fa6d0e5</span></p>
+                    </div>
+                    
+                    <div class="dossier-mini-stats">
+                        <div class="mini-stat">
+                            <span class="label">Total Hours</span>
+                            <span class="value" id="dossier-stat-hours">0h 0m</span>
+                        </div>
+                        <div class="mini-stat">
+                            <span class="label">Total Scans</span>
+                            <span class="value" id="dossier-stat-scans">0</span>
+                        </div>
+                        <div class="mini-stat">
+                            <span class="label">Punctuality</span>
+                            <span class="value" id="dossier-stat-punct">--%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Timeline and logs -->
+                <div class="dossier-content">
+                    <h4 class="section-title">Attendance History Logs</h4>
+                    <div class="dossier-timeline-wrapper">
+                        <div class="timeline" id="dossier-timeline">
+                            <!-- Dynamic logs -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification system toast -->
+    <div id="toast-container"></div>
+
+    <!-- Core App JS -->
+    <script type="module" src="./main.js"></script>
+</body>
+</html>
